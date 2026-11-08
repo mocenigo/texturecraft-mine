@@ -193,6 +193,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Copy to all texture sets", "In alle Textursets kopieren"),
     ("Copy what the texture set shows", "Kopieren, was das Texturset anzeigt"),
     ("Couldn't encode the render", "Das Rendering konnte nicht kodiert werden"),
+    ("The project changed while saving; it was not saved", "Das Projekt hat sich beim Speichern geändert; es wurde nicht gespeichert"),
     ("Couldn't export textures: {error}", "Texturen konnten nicht exportiert werden: {error}"),
     ("Couldn't export the mesh: {error}", "Das Mesh konnte nicht exportiert werden: {error}"),
     ("Couldn't export the template: {error}", "Die Vorlage konnte nicht exportiert werden: {error}"),
