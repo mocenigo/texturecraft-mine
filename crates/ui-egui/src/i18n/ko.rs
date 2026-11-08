@@ -187,7 +187,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Copy to all texture sets", "모든 텍스처 세트에 복사"),
     ("Copy what the texture set shows", "텍스처 세트에 표시되는 내용을 복사합니다"),
     ("Couldn't encode the render", "렌더를 인코딩할 수 없습니다"),
-    ("The project changed while saving; it was not saved", "저장하는 동안 프로젝트가 바뀌어 저장하지 않았습니다"),
+    ("The project changed while the dialog was open; nothing was done", "대화 상자가 열려 있는 동안 프로젝트가 바뀌어 아무것도 하지 않았습니다"),
     ("Couldn't export textures: {error}", "텍스처를 내보낼 수 없습니다: {error}"),
     ("Couldn't export the mesh: {error}", "메시를 내보낼 수 없습니다: {error}"),
     ("Couldn't export the template: {error}", "템플릿을 내보낼 수 없습니다: {error}"),

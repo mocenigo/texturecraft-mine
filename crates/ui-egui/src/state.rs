@@ -79,9 +79,9 @@ pub struct Windows {
     /// What waits on the unsaved-changes dialog: save, don't save or cancel.
     #[serde(skip)]
     pub unsaved: Option<Unsaved>,
-    /// `mesh_id` of the project a Save As / Save Copy sheet was opened for.
+    /// `mesh_id` of the project the unsaved-changes dialog asks about.
     #[serde(skip)]
-    pub save_for: Option<u64>,
+    pub unsaved_for: u64,
 }
 
 /// An action that replaces or ends the project, held while the project has unsaved changes.

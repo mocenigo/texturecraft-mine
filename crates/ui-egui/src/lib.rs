@@ -89,6 +89,8 @@ pub struct TextureCraftApp {
     pub ui: UiState,
     /// The native file dialog that is open, and what it picked ([`picker`])
     pub picker: picker::Picker,
+    /// The export template a Save dialog was opened for.
+    pub template_export: Option<texturecraft_engine::formats::ExportPreset>,
     pub gpu: Option<gpu::GpuLink>,
     pub control: Option<std::sync::mpsc::Receiver<ControlRequest>>,
     pub toasts: Vec<Toast>,
@@ -154,6 +156,7 @@ impl TextureCraftApp {
             session,
             ui,
             picker: picker::Picker::default(),
+            template_export: None,
             gpu,
             control: None,
             toasts: Vec::new(),

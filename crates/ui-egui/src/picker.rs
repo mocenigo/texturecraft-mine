@@ -62,18 +62,21 @@ pub struct Picker {
     picked: Option<Picked>,
     /// The window to wake when a sheet answers, from the last [`Self::poll`].
     ctx: Option<egui::Context>,
+    /// `mesh_id` of the project the last accepted request was asked for.
+    pub(crate) project: u64,
 }
 
 impl Picker {
-    /// Shows `request` for `tag`: one dialog at a time.
-    pub fn ask(&mut self, tag: impl Into<String>, request: Request) {
+    /// Shows `request` for `tag`, asked for the project `project`: one dialog at a time.
+    pub fn ask(&mut self, tag: impl Into<String>, project: u64, request: Request) {
         #[cfg(target_arch = "wasm32")]
-        let _ = (tag, request);
+        let _ = (tag, project, request);
         #[cfg(not(target_arch = "wasm32"))]
         {
             if self.pending.is_some() {
                 return;
             }
+            self.project = project;
             let tag = tag.into();
             #[cfg(target_os = "macos")]
             match sheet(request, self.ctx.clone()) {
@@ -107,6 +110,11 @@ impl Picker {
     /// The tag and paths of a dialog that picked something, once.
     pub fn take(&mut self) -> Option<Picked> {
         self.picked.take()
+    }
+
+    /// `mesh_id` of the project the dialog that answered was asked for.
+    pub fn project(&self) -> u64 {
+        self.project
     }
 
     /// Whether a dialog is open.
@@ -193,7 +201,7 @@ mod tests {
     #[test]
     fn an_answer_is_taken_once_after_it_arrives() {
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut picker = Picker { pending: Some(("open".into(), rx)), picked: None, ctx: None };
+        let mut picker = Picker { pending: Some(("open".into(), rx)), picked: None, ctx: None, project: 0 };
         picker.poll(&egui::Context::default());
         assert!(picker.open() && picker.take().is_none(), "no answer yet");
         tx.send(vec![PathBuf::from("/tmp/a.tcraft")]).unwrap();
@@ -207,7 +215,7 @@ mod tests {
     #[test]
     fn a_cancelled_dialog_picks_nothing() {
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut picker = Picker { pending: Some(("open".into(), rx)), picked: None, ctx: None };
+        let mut picker = Picker { pending: Some(("open".into(), rx)), picked: None, ctx: None, project: 0 };
         tx.send(Vec::new()).unwrap();
         picker.poll(&egui::Context::default());
         assert!(!picker.open() && picker.take().is_none());

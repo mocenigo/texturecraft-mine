@@ -33,6 +33,7 @@ pub fn show(app: &mut TextureCraftApp, ctx: &egui::Context) {
 pub(crate) fn ask_to_save(app: &mut TextureCraftApp, then: crate::state::Unsaved) -> bool {
     if app.session.modified {
         app.ui.windows.unsaved = Some(then);
+        app.ui.windows.unsaved_for = app.session.mesh_id;
     }
     app.session.modified
 }
@@ -46,6 +47,11 @@ fn unsaved(app: &mut TextureCraftApp, ctx: &egui::Context) {
         ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
     }
     let Some(pending) = app.ui.windows.unsaved.clone() else { return };
+    // A command replaced the project: its being unmodified does not mean the asked one was saved
+    if app.ui.windows.unsaved_for != app.session.mesh_id {
+        app.ui.windows.unsaved = None;
+        return;
+    }
 
     let mut open = true;
     let mut save_first = None;
@@ -417,7 +423,7 @@ fn new_project(app: &mut TextureCraftApp, ctx: &egui::Context) {
                     }
                 });
                 if file_dialogs_available() && ui.button(tr("Select...")).clicked() {
-                    app.picker.ask("newProjectMesh", mesh_request());
+                    app.picker.ask("newProjectMesh", app.session.mesh_id, mesh_request());
                 }
             });
             ui.end_row();
@@ -597,7 +603,7 @@ fn settings(app: &mut TextureCraftApp, ctx: &egui::Context) {
                     let default = crate::data_folder("").display().to_string();
                     ui.add(egui::TextEdit::singleline(&mut p.data_folder).hint_text(default).desired_width(260.0));
                     if ui.button("...").clicked() {
-                        app.picker.ask("dataFolder", Request::new(Kind::Folder).dir(crate::data_folder(&p.data_folder)));
+                        app.picker.ask("dataFolder", app.session.mesh_id, Request::new(Kind::Folder).dir(crate::data_folder(&p.data_folder)));
                     }
                 });
                 ui.end_row();
@@ -707,7 +713,7 @@ pub fn remember(app: &mut TextureCraftApp, path: &str) {
 pub fn layout_file(app: &mut TextureCraftApp, save: bool) {
     let dir = crate::user_dir("layouts");
     let request = Request::new(if save { Kind::Save } else { Kind::Open }).filter(tr("UI layout"), &["json"]).dir(dir);
-    app.picker.ask(if save { "layout.save" } else { "layout.load" }, if save { request.name("layout.json") } else { request });
+    app.picker.ask(if save { "layout.save" } else { "layout.load" }, app.session.mesh_id, if save { request.name("layout.json") } else { request });
 }
 
 /// Saves or loads the UI layout file the dialog picked.
@@ -747,7 +753,7 @@ pub fn layout_file(app: &mut TextureCraftApp, _save: bool) {
 pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) -> bool {
     match id {
         "file.open" => {
-            app.picker.ask("file.open", Request::new(Kind::Open).filter(tr("TextureCraft project or mesh"), crate::web_files::OPEN_EXTS));
+            app.picker.ask("file.open", app.session.mesh_id, Request::new(Kind::Open).filter(tr("TextureCraft project or mesh"), crate::web_files::OPEN_EXTS));
             true
         }
         "file.save" if app.session.path.is_some() => {
@@ -760,23 +766,23 @@ pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) ->
         "file.save" | "file.saveAs" | "file.saveCopy" => {
             let name = crate::web_files::project_file_name(app);
             let tag = if id == "file.saveCopy" { "file.saveCopy" } else { "file.saveAs" };
-            // The picker ignores a request while a sheet is open; keep that sheet's project
-            if !app.picker.open() {
-                app.ui.windows.save_for = Some(app.session.mesh_id);
-            }
-            app.picker.ask(tag, Request::new(Kind::Save).filter(tr("TextureCraft project"), &[texturecraft_engine::core::PROJECT_EXT]).name(name));
+            app.picker.ask(
+                tag,
+                app.session.mesh_id,
+                Request::new(Kind::Save).filter(tr("TextureCraft project"), &[texturecraft_engine::core::PROJECT_EXT]).name(name),
+            );
             true
         }
         "material.load" => {
-            app.picker.ask("material.load", Request::new(Kind::OpenMany).filter(tr("Materials"), crate::web_files::MATERIAL_EXTS));
+            app.picker.ask("material.load", app.session.mesh_id, Request::new(Kind::OpenMany).filter(tr("Materials"), crate::web_files::MATERIAL_EXTS));
             true
         }
         "file.importResources" | "resource.import" => {
-            app.picker.ask("resource.import", Request::new(Kind::OpenMany).filter(tr("Images"), crate::web_files::IMAGE_EXTS));
+            app.picker.ask("resource.import", app.session.mesh_id, Request::new(Kind::OpenMany).filter(tr("Images"), crate::web_files::IMAGE_EXTS));
             true
         }
         "file.importMaterialX" => {
-            app.picker.ask("file.importMaterialX", Request::new(Kind::Open).filter(tr("MaterialX materials"), &["mtlx"]));
+            app.picker.ask("file.importMaterialX", app.session.mesh_id, Request::new(Kind::Open).filter(tr("MaterialX materials"), &["mtlx"]));
             true
         }
         "file.exportMesh" => {
@@ -788,7 +794,7 @@ pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) ->
                 .filter(tr("USD text, textures alongside"), &["usda"])
                 .filter(tr("USD binary, textures alongside"), &["usdc"])
                 .name(name);
-            app.picker.ask("file.exportMesh", request);
+            app.picker.ask("file.exportMesh", app.session.mesh_id, request);
             true
         }
         "file.reimportMesh" => {
@@ -797,7 +803,7 @@ pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) ->
                 Some(_) => {
                     app.run("file.reimportMesh", json!({"path": null, "preserveStrokes": true}));
                 }
-                None => app.picker.ask("file.reimportMesh", mesh_request()),
+                None => app.picker.ask("file.reimportMesh", app.session.mesh_id, mesh_request()),
             }
             true
         }
@@ -810,13 +816,17 @@ pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) ->
 pub fn picked(app: &mut TextureCraftApp, tag: &str, paths: Vec<std::path::PathBuf>) {
     let Some(first) = paths.first() else { return };
     let shown = first.display().to_string();
+    // A command can swap the project while a sheet is open: its answer is not for the new one
+    let for_app =
+        matches!(tag, "file.open" | "newProjectMesh" | "dataFolder" | "exportDir" | "layout.save" | "layout.load" | "template.import" | "render.save");
+    if !for_app && app.picker.project() != app.session.mesh_id {
+        app.toast(tr("The project changed while the dialog was open; nothing was done"), true);
+        return;
+    }
     match tag {
         "file.open" => open_path(app, &shown),
         "file.saveAs" | "file.saveCopy" => {
-            // A command can swap the project while the sheet is open
-            if app.ui.windows.save_for.take() != Some(app.session.mesh_id) {
-                app.toast(tr("The project changed while saving; it was not saved"), true);
-            } else if let Some(r) = app.run(tag, json!({"path": shown})) {
+            if let Some(r) = app.run(tag, json!({"path": shown})) {
                 // The engine adds the extension when the name has none
                 let p = r.get("path").and_then(|p| p.as_str()).unwrap_or(&shown).to_string();
                 remember(app, &p);
@@ -965,7 +975,7 @@ fn export_settings_tab(app: &mut TextureCraftApp, ui: &mut Ui, presets: &[textur
             ui.horizontal(|ui| {
                 ui.add(egui::TextEdit::singleline(&mut app.ui.export.dir).desired_width(360.0));
                 if ui.button("...").clicked() {
-                    app.picker.ask("exportDir", Request::new(Kind::Folder).dir(app.ui.export.dir.clone()));
+                    app.picker.ask("exportDir", app.session.mesh_id, Request::new(Kind::Folder).dir(app.ui.export.dir.clone()));
                 }
             });
             ui.end_row();
@@ -1144,5 +1154,52 @@ pub fn export(app: &mut TextureCraftApp, ctx: &egui::Context) {
     }
     if !open {
         app.ui.windows.export = false;
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use crate::TextureCraftApp;
+    use egui_kittest::Harness;
+
+    /// Save As remembers the file the engine wrote, and an answer asked for another project
+    /// writes nothing.
+    #[test]
+    fn save_as_answers_belong_to_their_project() {
+        let session = texturecraft_engine::sample_session(256, 64).unwrap();
+        let mut h = Harness::builder().with_size(egui::vec2(1600.0, 960.0)).build_eframe(|cc| TextureCraftApp::new(cc, session));
+        h.run_steps(2);
+        let dir = std::env::temp_dir().join(format!("tc-save-as-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let app = h.state_mut();
+
+        app.picker.project = app.session.mesh_id.wrapping_add(1);
+        super::picked(app, "file.saveAs", vec![dir.join("stale")]);
+        assert!(!dir.join("stale.tcraft").exists(), "a stale answer saved the current project");
+
+        app.picker.project = app.session.mesh_id;
+        let chosen = dir.join("named");
+        super::picked(app, "file.saveAs", vec![chosen.clone()]);
+        let written = format!("{}.{}", chosen.display(), texturecraft_engine::core::PROJECT_EXT);
+        assert_eq!(app.ui.recent.first(), Some(&written));
+        assert!(std::path::Path::new(&written).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The unsaved-changes dialog does not run its action for a project that replaced the one
+    /// it asked about.
+    #[test]
+    fn a_replaced_project_drops_the_unsaved_prompt() {
+        let session = texturecraft_engine::sample_session(256, 64).unwrap();
+        let mut h = Harness::builder().with_size(egui::vec2(1600.0, 960.0)).build_eframe(|cc| TextureCraftApp::new(cc, session));
+        h.run_steps(2);
+        let app = h.state_mut();
+        app.session.modified = true;
+        assert!(super::ask_to_save(app, crate::state::Unsaved::Command("project.sample".into())));
+        app.session = texturecraft_engine::sample_session(256, 64).unwrap();
+        let replaced = app.session.mesh_id;
+        h.run_steps(2);
+        assert!(h.state().ui.windows.unsaved.is_none());
+        assert_eq!(h.state().session.mesh_id, replaced, "the pending command ran for the new project");
     }
 }

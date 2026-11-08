@@ -172,7 +172,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Copy to all texture sets", "复制到所有纹理集"),
     ("Copy what the texture set shows", "复制纹理集显示的内容"),
     ("Couldn't encode the render", "无法编码渲染结果"),
-    ("The project changed while saving; it was not saved", "保存期间项目已更改，未保存"),
+    ("The project changed while the dialog was open; nothing was done", "对话框打开期间项目已更改，未执行任何操作"),
     ("Couldn't export textures: {error}", "无法导出纹理：{error}"),
     ("Couldn't export the mesh: {error}", "无法导出网格：{error}"),
     ("Couldn't export the template: {error}", "无法导出模板：{error}"),

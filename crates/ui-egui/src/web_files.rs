@@ -83,7 +83,7 @@ pub fn poll(app: &mut TextureCraftApp) {
 pub fn import_bake_mesh(app: &mut TextureCraftApp, _ctx: &egui::Context, cage: bool) {
     use crate::picker::{Kind, Request};
     let kind = if cage { Kind::Open } else { Kind::OpenMany };
-    app.picker.ask(if cage { "bake.cage" } else { "bake.highPoly" }, Request::new(kind).filter(tr("Meshes"), &MESH_EXTENSIONS));
+    app.picker.ask(if cage { "bake.cage" } else { "bake.highPoly" }, app.session.mesh_id, Request::new(kind).filter(tr("Meshes"), &MESH_EXTENSIONS));
 }
 
 /// Display settings › Import HDR: pick an equirect `.hdr`/`.exr`, import it as a resource and
@@ -91,7 +91,7 @@ pub fn import_bake_mesh(app: &mut TextureCraftApp, _ctx: &egui::Context, cage: b
 #[cfg(not(target_arch = "wasm32"))]
 pub fn import_environment(app: &mut TextureCraftApp, _ctx: &egui::Context) {
     use crate::picker::{Kind, Request};
-    app.picker.ask("environment", Request::new(Kind::Open).filter(tr("HDR environments"), ENV_EXTS));
+    app.picker.ask("environment", app.session.mesh_id, Request::new(Kind::Open).filter(tr("HDR environments"), ENV_EXTS));
 }
 
 /// Imports the HDR file the dialog picked and lights the scene with it.

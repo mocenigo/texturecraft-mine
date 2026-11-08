@@ -629,7 +629,7 @@ fn save(app: &mut TextureCraftApp) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use crate::picker::{Kind, Request};
-        app.picker.ask("render.save", Request::new(Kind::Save).filter(tr("PNG image"), &["png"]).name(name));
+        app.picker.ask("render.save", app.session.mesh_id, Request::new(Kind::Save).filter(tr("PNG image"), &["png"]).name(name));
     }
     #[cfg(target_arch = "wasm32")]
     {

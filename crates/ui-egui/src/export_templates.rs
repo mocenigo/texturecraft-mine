@@ -342,7 +342,7 @@ pub fn import(app: &mut TextureCraftApp, preset: &ExportPreset) {
 #[cfg(not(target_arch = "wasm32"))]
 fn import_file(app: &mut TextureCraftApp, _ctx: &egui::Context) {
     use crate::picker::{Kind, Request};
-    app.picker.ask("template.import", Request::new(Kind::Open).filter(tr("Export template"), &["json"]));
+    app.picker.ask("template.import", app.session.mesh_id, Request::new(Kind::Open).filter(tr("Export template"), &["json"]));
 }
 
 /// The template file the dialog picked.
@@ -363,17 +363,23 @@ fn export_file(app: &mut TextureCraftApp) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use crate::picker::{Kind, Request};
+        // One dialog at a time: keep the template the open one was asked for
+        if app.picker.open() {
+            return;
+        }
         let Some(p) = selected(app) else { return };
         let name = format!("{}.json", sanitize_file_stem(&p.name));
-        app.picker.ask("template.export", Request::new(Kind::Save).filter(tr("Export template"), &["json"]).name(name));
+        app.template_export = Some(p);
+        app.picker.ask("template.export", app.session.mesh_id, Request::new(Kind::Save).filter(tr("Export template"), &["json"]).name(name));
     }
     #[cfg(target_arch = "wasm32")]
     write_selected(app, None);
 }
 
-/// Writes the selected template to `path` (the desktop dialog's answer) or downloads it (the browser).
+/// Writes the template the desktop dialog was asked for to `path`, or downloads the selected one (the browser).
 pub(crate) fn write_selected(app: &mut TextureCraftApp, path: Option<&std::path::Path>) {
-    let Some(p) = selected(app) else { return };
+    let p = if path.is_some() { app.template_export.take() } else { selected(app) };
+    let Some(p) = p else { return };
     let name = format!("{}.json", sanitize_file_stem(&p.name));
     let saved = texturecraft_engine::formats::preset_to_json(&p).map_err(|e| e.to_string()).and_then(|json| write_json(&name, path, &json));
     match saved {
@@ -669,6 +675,24 @@ fn input_maps(ui: &mut Ui) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The Save dialog writes the template it was opened for, even if the selection changed since.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn export_writes_the_template_the_dialog_was_asked_for() {
+        let session = texturecraft_engine::sample_session(256, 64).unwrap();
+        let mut h = egui_kittest::Harness::builder().build_eframe(|cc| TextureCraftApp::new(cc, session));
+        let app = h.state_mut();
+        let presets = texturecraft_engine::formats::builtin_presets();
+        let (asked, later) = (&presets[0], &presets[1]);
+        app.template_export = Some(asked.clone());
+        app.ui.export.preset = later.name.clone();
+        let path = std::env::temp_dir().join(format!("tc-template-{}.json", std::process::id()));
+        write_selected(app, Some(&path));
+        let written = std::fs::read_to_string(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(texturecraft_engine::formats::preset_from_json(&written).unwrap().name, asked.name);
+    }
 
     fn ch(channel: Channel, component: u8) -> SourceRef {
         SourceRef::Channel { channel, component }
