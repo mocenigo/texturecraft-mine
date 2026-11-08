@@ -617,22 +617,27 @@ pub(crate) fn save_to(app: &mut TextureCraftApp, path: &std::path::Path) {
 }
 
 fn save(app: &mut TextureCraftApp) {
-    let Some((w, h, rgba)) = app.render.shown.clone() else { return };
-    let Some(png) = crate::control::encode_png(w, h, rgba).map(|(_, _, png)| png) else {
-        app.toast(tr("Couldn't encode the render"), true);
+    if app.render.shown.is_none() {
         return;
-    };
+    }
     let name = format!("{}_render.png", texturecraft_engine::formats::export::sanitize_file_stem(&app.session.doc.project.name));
+    // The native build encodes once the dialog has answered, in `save_to`.
     #[cfg(not(target_arch = "wasm32"))]
     {
         use crate::picker::{Kind, Request};
-        let _ = png;
         app.picker.ask("render.save", Request::new(Kind::Save).filter(tr("PNG image"), &["png"]).name(name));
     }
     #[cfg(target_arch = "wasm32")]
-    match crate::web_files::download(&name, &png) {
-        Ok(()) => app.toast(trf("Downloaded {name}", &[("name", &name)]), false),
-        Err(e) => app.toast(trf("Couldn't save the render: {error}", &[("error", &e)]), true),
+    {
+        let Some((w, h, rgba)) = app.render.shown.clone() else { return };
+        let Some(png) = crate::control::encode_png(w, h, rgba).map(|(_, _, png)| png) else {
+            app.toast(tr("Couldn't encode the render"), true);
+            return;
+        };
+        match crate::web_files::download(&name, &png) {
+            Ok(()) => app.toast(trf("Downloaded {name}", &[("name", &name)]), false),
+            Err(e) => app.toast(trf("Couldn't save the render: {error}", &[("error", &e)]), true),
+        }
     }
 }
 
