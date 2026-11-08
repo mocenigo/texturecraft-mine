@@ -760,7 +760,10 @@ pub fn file_action(app: &mut TextureCraftApp, _ctx: &egui::Context, id: &str) ->
         "file.save" | "file.saveAs" | "file.saveCopy" => {
             let name = crate::web_files::project_file_name(app);
             let tag = if id == "file.saveCopy" { "file.saveCopy" } else { "file.saveAs" };
-            app.ui.windows.save_for = Some(app.session.mesh_id);
+            // The picker ignores a request while a sheet is open; keep that sheet's project
+            if !app.picker.open() {
+                app.ui.windows.save_for = Some(app.session.mesh_id);
+            }
             app.picker.ask(tag, Request::new(Kind::Save).filter(tr("TextureCraft project"), &[texturecraft_engine::core::PROJECT_EXT]).name(name));
             true
         }
@@ -813,9 +816,11 @@ pub fn picked(app: &mut TextureCraftApp, tag: &str, paths: Vec<std::path::PathBu
             // A command can swap the project while the sheet is open
             if app.ui.windows.save_for.take() != Some(app.session.mesh_id) {
                 app.toast(tr("The project changed while saving; it was not saved"), true);
-            } else if app.run(tag, json!({"path": shown})).is_some() {
-                remember(app, &shown);
-                app.toast(trf("Saved {path}", &[("path", &shown)]), false);
+            } else if let Some(r) = app.run(tag, json!({"path": shown})) {
+                // The engine adds the extension when the name has none
+                let p = r.get("path").and_then(|p| p.as_str()).unwrap_or(&shown).to_string();
+                remember(app, &p);
+                app.toast(trf("Saved {path}", &[("path", &p)]), false);
             }
         }
         "material.load" => {
