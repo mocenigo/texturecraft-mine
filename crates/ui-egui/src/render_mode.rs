@@ -605,7 +605,11 @@ fn overlay(app: &mut TextureCraftApp, ui: &mut Ui, rect: Rect, on_gpu: bool) {
 /// Writes the shown render to `path`, the save dialog's answer.
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn save_to(app: &mut TextureCraftApp, path: &std::path::Path) {
-    let Some((w, h, rgba)) = app.render.shown.clone() else { return };
+    // The mode may have changed while the sheet was open, which clears the render.
+    let Some((w, h, rgba)) = app.render.shown.clone() else {
+        app.toast(tr("Couldn't encode the render"), true);
+        return;
+    };
     let Some(png) = crate::control::encode_png(w, h, rgba).map(|(_, _, png)| png) else {
         app.toast(tr("Couldn't encode the render"), true);
         return;
